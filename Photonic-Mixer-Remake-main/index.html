@@ -19,6 +19,8 @@
     <script src="firebase-config.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="js/FXEngine.js"></script>
+    <script src="js/MotionBlur.js"></script>
+    <script src="js/CameraFX.js"></script>
     <!-- Library untuk membaca file FBX & OBJ secara lokal -->
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
@@ -153,7 +155,7 @@
         .fader-grid { display: flex; justify-content: space-around; height: 160px; gap: 2px; overflow: hidden; }
         .fader-box { display: flex; flex-direction: column; align-items: center; flex: 1; }
         .fader-box label { font-size: 8px; color: #888; margin-bottom: 4px; text-align: center; }
-        .slider-v { appearance: none; width: 20px; height: 100%; background: #222; border-radius: 4px; outline: none; -webkit-appearance: slider-vertical; touch-action: none; }
+        .slider-v{appearance:none;-webkit-appearance:none;writing-mode: vertical-lr;direction: rtl;width:20px;height:100%;background:#222;border-radius:4px;outline:none;touch-action:none;}
         .slider-v::-webkit-slider-thumb { appearance: none; width: 20px; height: 22px; background: #0f0; border-radius: 4px; border: 1px solid #fff; }
 
         .settings-motion-row { display: flex; flex-direction: column; gap: 5px; background: #1a1a1a; border-radius: 8px; padding: 8px; margin-top: 5px; }
@@ -185,10 +187,19 @@
         .audio-row { display: flex; align-items: center; gap: 10px; background: #000; border: 1px solid #333; padding: 5px 10px; border-radius: 4px; margin-top: 5px; }
         .audio-controls { display: flex; gap: 8px; align-items: center; }
         .audio-btn { background: #222; color: #0f0; border: 1px solid #444; font-size: 9px; padding: 5px 8px; border-radius: 3px; cursor: pointer; }
-        #audio-visualizer { flex: 1; height: 15px; background: #050505; border-radius: 2px; overflow: hidden; display: flex; align-items: flex-end; gap: 1px; }
+        #audio-visualizer { flex: 1; height: 29px; background: #050505; border-radius: 2px; overflow: hidden; display: flex; align-items: flex-end; gap: 1px; }
         .vis-bar { flex: 1; background: #0f0; min-height: 1px; }
 
+        #audio-eq-panel{ display:flex; justify-content:center; gap:35px; padding:18px; background:#1b1b1b; border:2px solid #3a3a3a; border-radius:18px; box-shadow: inset 0 2px 0 rgba(255,255,255,.05), inset 0 -2px 0 rgba(0,0,0,.6), 0 0 12px rgba(0,0,0,.45); }
+        .eq-fader{display:flex;flex-direction:column;align-items:center;color:#0f0;font-size:11px;}
+        .eq-fader input{height:130px;writing-mode:vertical-lr;direction:rtl;appearance:none;-webkit-appearance:none;}
+        .switch{position:relative;display:inline-block;width:52px;height:28px;}
+        .switch input{ display:none;}
+        .slider{position:absolute;inset:0;background:#555;border-radius:30px;cursor:pointer;transition:.25s;}
+        .slider:before{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;background:white;border-radius:50%;transition:.25s;}input:checked + .slider{background:#00c853;}input:checked + .slider:before{transform:translateX(24px);}
         .section-label { font-size: 8px; color: #fff; font-weight: bold; text-align: center; background: #333; padding: 2px; margin-top: 4px; }
+        #eq-reset{padding:8px 18px;background:#d32f2f;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:bold;}
+        #eq-reset:hover{background:#f44336;}
         .strobe-unit { display: flex; flex-direction: column; gap: 2px; background: #1a1a1a; padding: 4px; border-radius: 4px; border: 1px solid #333; }
         .btn-strobe-big { background: #222; border: 1px solid #444; color: #0f0; padding: 8px 2px; border-radius: 4px; cursor: pointer; font-size: 9px; transition: all 0.2s; min-height: 35px; position: relative; }
         .strobe-pct { position: absolute; bottom: 2px; right: 3px; font-size: 7px; font-weight: bold; color: #888; background: rgba(0,0,0,0.4); padding: 0 2px; border-radius: 2px; line-height: 1.3; pointer-events: none; }
@@ -371,7 +382,13 @@
         const splashStatus = document.getElementById('splash-status');
         const loadingBar = document.getElementById('loading-bar');
         const splash = document.getElementById('splash-screen');
-
+        let subBass;
+        let bass;
+        let mid;
+        let high;
+        let distortion;
+        let masterGain;
+        let eqBypass = false;
         const steps = [
             { pct: 20, txt: 'Memuat engine...' },
             { pct: 45, txt: 'Inisialisasi 3D...' },
@@ -962,7 +979,7 @@
                 <div class="fader-box"><label>Zoom</label><input type="range" class="slider-v" id="val-zoom" min="5" max="150" value="40" oninput="uVal('zoom', this.value); document.getElementById('val-zoom-disp').innerText=this.value+'';"><span id="val-zoom-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">40</span></div>
                 <div class="fader-box"><label style="color:#0f0">Space</label><input type="range" class="slider-v" id="val-space" min="2" max="40" value="12" oninput="uSpace(this.value); document.getElementById('val-space-disp').innerText=this.value+'';"><span id="val-space-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">12</span></div>
                 <div class="fader-box" title="POS X (KIRI/KANAN)"><label style="color:#ff0">POS X</label><input type="range" class="slider-v" id="val-posX" min="-150" max="150" value="0" oninput="uPos('x', this.value); document.getElementById('val-posX-disp').innerText=this.value+'';"><span id="val-posX-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">0</span></div>
-                <div class="fader-box" title="POS Y (ATAS/BAWAH)"><label style="color:#ff0">POS Y</label><input type="range" class="slider-v" id="val-posY" min="-20" max="200" value="10" oninput="uPos('y', this.value); document.getElementById('val-posY-disp').innerText=this.value+'';" style="writing-mode:vertical-lr; direction:rtl; -webkit-appearance:slider-vertical;"><span id="val-posY-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">10</span></div>
+                <div class="fader-box" title="POS Y (ATAS/BAWAH)"><label style="color:#ff0">POS Y</label><input type="range" class="slider-v" id="val-posY" min="-20" max="200" value="10" oninput="uPos('y', this.value); document.getElementById('val-posY-disp').innerText=this.value+'';" style="writing-mode:vertical-lr;direction:rtl;appearance:none;-webkit-appearance:none;">10</span></div>
                 <div class="fader-box"><label style="color:#f0a">Rot</label><input type="range" class="slider-v" id="val-rot" min="0" max="100" value="20" oninput="uVal('rot', this.value); document.getElementById('val-rot-disp').innerText=this.value+'%';"><span id="val-rot-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">20%</span></div>
                 <div class="fader-box"><label style="color:#f0f">Rain</label><input type="range" class="slider-v" id="val-rainbow" min="0" max="100" value="0" oninput="uVal('rainbow', this.value); document.getElementById('val-rainbow-disp').innerText=this.value+'%';"><span id="val-rainbow-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">0%</span></div>
                 <div class="fader-box" title="POS Z (MAJU/MUNDUR)"><label style="color:#0ff">POS Z</label><input type="range" class="slider-v" id="val-posZ" min="-150" max="50" value="-25" oninput="uPos('z', this.value); document.getElementById('val-posZ-disp').innerText=this.value+'';"><span id="val-posZ-disp" style="font-size:8px;color:#aaa;min-width:28px;text-align:right;display:inline-block;">-25</span></div>
@@ -1036,6 +1053,45 @@
                         style="flex:1; background:#001200; color:#0f0; border:1px solid #040; border-radius:3px; padding:5px 2px; font-size:8px; cursor:pointer; font-weight:bold;">AUTO BPM</button>
                     <span id="bpm-detect-label" style="font-size:8px; color:#666; flex:1; text-align:center;">Upload audio dulu</span>
                 </div>
+            </div>
+            <div id="audio-eq-panel">
+            <label class="switch">
+                <input type="checkbox" id="eq-bypass">
+                <span class="slider"></span>
+            </label>
+
+            <span id="bypass-text">BYPASS OFF</span>
+            <div class="eq-fader">
+               <label>BASS</label>
+                <input type="range" id="bass-gain" min="-24" max="24" value="0" class="slider-v">
+               <span id="bass-value">0 dB</span>
+            </div>
+
+            <div class="eq-fader">
+                <label>BASS FREQ</label>
+                <input type="range" id="bass-freq" min="20" max="250" value="120" class="slider-v">
+                <span id="bassfreq-value">120 Hz</span>
+            </div>
+
+            <div class="eq-fader">
+                <label>MID</label>
+               <input type="range" id="mid-gain" min="-24" max="24" value="0" class="slider-v">
+                <span id="mid-value">0 dB</span>
+            </div>
+
+            <div class="eq-fader">
+                <label>HIGH</label>
+                <input type="range" id="high-gain" min="-24" max="24" value="0" class="slider-v">
+                <span id="high-value">0 dB</span>
+            </div>
+
+            <div class="eq-fader">
+                <label>MASTER</label>
+                <input type="range" id="master-volume" min="0" max="120" value="100" class="slider-v">
+                <span id="master-value">100%</span>
+            </div>
+            <button id="eq-reset">RESET</button>
+
             </div>
 
             <div class="settings-motion-row" style="border: 1px solid #fff; margin-top: 8px;">
@@ -1685,7 +1741,7 @@
     // Audio
     let audioContext = null, audioSource = null, audioAnalyzer = null;
     let audioDataArray = null, audioPlayer = null, isAudioPlaying = false;
-    const VIS_BARS = 30;
+    const VIS_BARS = 50;
     let SB_COLOR = 0xff00ff;
 
     // Color step sync interval
@@ -1791,6 +1847,7 @@
         scene.fog = new THREE.FogExp2(0x1a1a1a, 0.008);
 
         camera = new THREE.PerspectiveCamera(60, v.clientWidth / v.clientHeight, 0.1, 2000);
+        CameraFX.init(camera);
         camera.position.set(0, 30, 110);
         camera.lookAt(0, 5, 0);
 
@@ -1826,6 +1883,7 @@
         createColorChaseButtons();
         createSceneButtons();
         setupEvents();
+        
         initVisualizer();
         renderColorSteps();
 
@@ -2604,6 +2662,82 @@
         vp.addEventListener('touchstart', onViewportTouchStart, {passive:false});
         vp.addEventListener('touchmove',  onViewportTouchMove,  {passive:false});
         vp.addEventListener('touchend',   onViewportTouchEnd,   {passive:true});
+        // ===== EQ Sliders =====
+        const sliderBass = document.getElementById("bass-gain");
+        const sliderBassFreq = document.getElementById("bass-freq");
+        const sliderMid = document.getElementById("mid-gain");
+        const sliderHigh = document.getElementById("high-gain");
+        // 
+        const bassValue = document.getElementById("bass-value");
+
+        sliderBass.addEventListener("input", function () {
+            bassValue.textContent = this.value + " dB";
+            bass.gain.value = Number(this.value);
+        });
+        const bassFreqValue = document.getElementById("bassfreq-value");
+
+        sliderBassFreq.addEventListener("input", function () {
+            bassFreqValue.textContent = this.value + " Hz";
+            bass.frequency.value = Number(this.value);
+        });
+        const midValue = document.getElementById("mid-value");
+
+        sliderMid.addEventListener("input", function () {
+            midValue.textContent = this.value + " dB";
+            mid.gain.value = Number(this.value);
+        });
+        const highValue = document.getElementById("high-value");
+
+        sliderHigh.addEventListener("input", function () {
+            highValue.textContent = this.value + " dB";
+            high.gain.value = Number(this.value);
+        });
+        const bypassSwitch = document.getElementById("eq-bypass");
+        const bypassText = document.getElementById("bypass-text");
+
+        bypassSwitch.onchange = function () {
+
+            if (this.checked) {
+
+                bypassText.innerText = "BYPASS ON";
+                reconnectAudio(true);
+
+            } else {
+
+                bypassText.innerText = "BYPASS OFF";
+                reconnectAudio(false);
+
+            }
+
+        };
+        const sliderMaster = document.getElementById("master-volume");
+        const masterValue = document.getElementById("master-value");
+      
+        sliderMaster.oninput = () => {
+
+            masterValue.innerText = sliderMaster.value + "%";
+
+            if (masterGain)
+                masterGain.gain.value = sliderMaster.value / 100;
+
+        };
+        const resetBtn = document.getElementById("eq-reset");
+
+        resetBtn.onclick = () => {
+
+            sliderBass.value = 0;
+            sliderBassFreq.value = 120;
+            sliderMid.value = 0;
+            sliderHigh.value = 0;
+            sliderMaster.value = 100;
+
+            sliderBass.dispatchEvent(new Event("input"));
+            sliderBassFreq.dispatchEvent(new Event("input"));
+            sliderMid.dispatchEvent(new Event("input"));
+            sliderHigh.dispatchEvent(new Event("input"));
+            sliderMaster.dispatchEvent(new Event("input"));
+
+        };
     }
 
     function toggleFullscreen() {
@@ -5660,8 +5794,9 @@
         processBeatDetection(now);
         processAudioReactive();
         // FX.update(camera, renderer, audioAnalyzer, audioDataArray);
-        if (typeof FX !== "undefined") {
-          CameraShake.update(camera, audioAnalyzer, audioDataArray);
+        if (audioAnalyzer && audioDataArray) {
+            CameraFX.update(camera, audioAnalyzer, audioDataArray);
+            MotionBlur.update(audioAnalyzer, audioDataArray);
         }
         // --- SISTEM WARNA ---
         if (activeColorChaseIdx !== -1 && !isColorRecording) {
@@ -6402,6 +6537,7 @@
     // FIX #3: Audio upload tidak bocor memory — disconnect source lama sebelum buat yang baru
     function handleAudioUpload(input) {
         if (!input.files || !input.files[0]) return;
+        
         const file = input.files[0];
         document.getElementById('audio-filename').innerText = file.name.toUpperCase();
 
@@ -6442,7 +6578,7 @@
         // SUB BASS
         // ====================
 
-        const subBass = audioContext.createBiquadFilter();
+        subBass = audioContext.createBiquadFilter();
         subBass.type = "lowshelf";
         subBass.frequency.value = 45;
         subBass.gain.value = 10;
@@ -6451,7 +6587,7 @@
         // BASS BOOST
         // ====================
 
-        const bass = audioContext.createBiquadFilter();
+        bass = audioContext.createBiquadFilter();
         bass.type = "lowshelf";
         bass.frequency.value = 90;
         bass.gain.value = 12;
@@ -6460,7 +6596,7 @@
         // MID SHAKE
         // ====================
 
-        const mid = audioContext.createBiquadFilter();
+        mid = audioContext.createBiquadFilter();
         mid.type = "peaking";
         mid.frequency.value = 2200;
         mid.Q.value = 1.2;
@@ -6470,7 +6606,7 @@
         // HIGH
         // ====================
 
-        const high = audioContext.createBiquadFilter();
+        high = audioContext.createBiquadFilter();
         high.type = "highshelf";
         high.frequency.value = 7000;
         high.gain.value = 2;
@@ -6479,7 +6615,7 @@
         // DISTORTION
         // ====================
 
-        const distortion = audioContext.createWaveShaper();
+        distortion = audioContext.createWaveShaper();
 
         function makeDistortionCurve(amount){
 
@@ -6505,16 +6641,10 @@
         // ====================
         // CONNECT
         // ====================
+        masterGain = audioContext.createGain();
+        masterGain.gain.value = 1;
 
-        audioSource
-        .connect(subBass)
-        .connect(bass)
-        .connect(mid)
-        .connect(high)
-        .connect(distortion)
-        .connect(audioAnalyzer);
-
-        audioAnalyzer.connect(audioContext.destination);
+        // สายที่ 2 : เสียงสำหรับฟัง
 
         // FFT
 
@@ -6524,6 +6654,35 @@
         // Auto-connect beat analyzer to same audio source
         beatAnalyzer = audioAnalyzer;
         beatDataArray = audioDataArray;
+    }
+    function reconnectAudio(bypass) {
+
+        try { audioSource.disconnect(); } catch(e) {}
+        try { subBass.disconnect(); } catch(e) {}
+        try { bass.disconnect(); } catch(e) {}
+        try { mid.disconnect(); } catch(e) {}
+        try { high.disconnect(); } catch(e) {}
+        try { distortion.disconnect(); } catch(e) {}
+        try { audioAnalyzer.disconnect(); } catch(e) {}
+        try { masterGain.disconnect(); } catch(e) {}
+
+        if (bypass) {
+
+            audioSource.connect(masterGain);
+
+        } else {
+
+            audioSource.connect(subBass);
+            subBass.connect(bass);
+            bass.connect(mid);
+            mid.connect(high);
+            high.connect(distortion);
+            distortion.connect(audioAnalyzer);
+            audioAnalyzer.connect(masterGain);
+
+        }
+
+        masterGain.connect(audioContext.destination);
     }
 
     function toggleAudio() {
@@ -8834,5 +8993,6 @@
 </script>
 </div><!-- end app-root -->
 <input type="file" id="import-file-input" accept=".json" style="display:none;">
+<input id="bass-gain">
 </body>
 </html>

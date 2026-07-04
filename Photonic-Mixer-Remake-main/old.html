@@ -93,7 +93,7 @@
         .fader-grid { display: flex; justify-content: space-around; height: 160px; gap: 2px; overflow: hidden; }
         .fader-box { display: flex; flex-direction: column; align-items: center; flex: 1; }
         .fader-box label { font-size: 8px; color: #888; margin-bottom: 4px; text-align: center; }
-        .slider-v { appearance: none; width: 20px; height: 100%; background: #222; border-radius: 4px; outline: none; -webkit-appearance: slider-vertical; touch-action: none; }
+        .slider-v { appearance: none; width: 20px; height: 100%; background: #222; border-radius: 4px; outline: none;.slider-v{writing-mode: vertical-lr;direction: rtl;appearance: none;-webkit-appearance: none;}; touch-action: none; }
         .slider-v::-webkit-slider-thumb { appearance: none; width: 20px; height: 22px; background: #0f0; border-radius: 4px; border: 1px solid #fff; }
 
         .settings-motion-row { display: flex; flex-direction: column; gap: 5px; background: #1a1a1a; border-radius: 8px; padding: 8px; margin-top: 5px; }
@@ -566,7 +566,7 @@
                 <div class="fader-box"><label>Zoom</label><input type="range" class="slider-v" id="val-zoom" min="5" max="150" value="40" oninput="uVal('zoom', this.value)"></div>
                 <div class="fader-box"><label style="color:#0f0">Space</label><input type="range" class="slider-v" id="val-space" min="2" max="40" value="12" oninput="uSpace(this.value)"></div>
                 <div class="fader-box"><label style="color:#ff0">POS X</label><input type="range" class="slider-v" id="val-posX" min="-150" max="150" value="0" oninput="uPos('x', this.value)"></div>
-                <div class="fader-box"><label style="color:#ff0">POS Y</label><input type="range" class="slider-v" id="val-posY" min="-20" max="80" value="10" oninput="uPos('y', this.value)" style="writing-mode:vertical-lr; direction:rtl; -webkit-appearance:slider-vertical;"></div>
+                <div class="fader-box"><label style="color:#ff0">POS Y</label><input type="range" class="slider-v" id="val-posY" min="-20" max="80" value="10" oninput="uPos('y', this.value)" style="writing-mode:vertical-lr; direction:rtl; "></div>
                 <div class="fader-box"><label style="color:#f0a">Rot</label><input type="range" class="slider-v" id="val-rot" min="0" max="100" value="20" oninput="uVal('rot', this.value)"></div>
                 <div class="fader-box"><label style="color:#f0f">Rain</label><input type="range" class="slider-v" id="val-rainbow" min="0" max="100" value="0" oninput="uVal('rainbow', this.value)"></div>
                 <div class="fader-box"><label style="color:#0ff">POS Z</label><input type="range" class="slider-v" id="val-posZ" min="-150" max="50" value="-25" oninput="uPos('z', this.value)"></div>
